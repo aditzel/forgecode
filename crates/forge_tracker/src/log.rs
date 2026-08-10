@@ -48,7 +48,8 @@ fn prepare_writer(
         let append = PostHogWriter::new(tracker);
         (
             tracing_appender::non_blocking(append),
-            tracing_subscriber::EnvFilter::new("forge=info"),
+            // Only ship error-level logs to PostHog to keep tracking minimal
+            tracing_subscriber::EnvFilter::new("forge=error"),
         )
     } else {
         let append = tracing_appender::rolling::daily(log_path, "forge.log");

@@ -70,6 +70,10 @@ impl ToolCallPayload {
     }
 }
 
+/// Maximum size (in bytes) of a trace payload sent to collectors.
+/// Traces beyond this size are truncated to keep tracking minimal.
+const MAX_TRACE_LEN: usize = 1024;
+
 #[derive(Debug, Clone)]
 pub enum EventKind {
     Start,
@@ -97,7 +101,14 @@ impl EventKind {
             Self::Prompt(content) => content.to_string(),
             Self::Error(content) => content.to_string(),
             Self::ToolCall(payload) => serde_json::to_string(&payload).unwrap_or_default(),
-            Self::Trace(trace) => trace.to_str_lossy().to_string(),
+            Self::Trace(trace) => {
+                let text = trace.to_str_lossy();
+                let mut end = text.len().min(MAX_TRACE_LEN);
+                while !text.is_char_boundary(end) {
+                    end -= 1;
+                }
+                text[..end].to_string()
+            }
             Self::Login(id) => id.login.to_owned(),
         }
     }
