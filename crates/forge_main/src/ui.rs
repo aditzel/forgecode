@@ -23,7 +23,6 @@ use forge_domain::{
 use forge_fs::ForgeFS;
 use forge_select::{ForgeWidget, SelectRow};
 use forge_spinner::SpinnerManager;
-use forge_tracker::ToolCallPayload;
 use forge_walker::Walker;
 use futures::future;
 use strum::IntoEnumIterator;
@@ -376,7 +375,6 @@ impl<A: API + ConsoleWriter + 'static, F: Fn(ForgeConfig) -> A + Send + Sync> UI
         // Handle direct prompt or piped input if provided (raw text messages)
         let input = self.cli.prompt.clone().or(self.cli.piped_input.clone());
         if let Some(input) = input {
-            tracker::prompt(input.clone());
             self.spinner.start(None)?;
             tokio::select! {
                 _ = tokio::signal::ctrl_c() => {
@@ -408,10 +406,6 @@ impl<A: API + ConsoleWriter + 'static, F: Fn(ForgeConfig) -> A + Send + Sync> UI
                             match result {
                                 Ok(exit) => if exit {return Ok(())},
                                 Err(error) => {
-                                    if let Some(conversation_id) = self.state.conversation_id.as_ref()
-                                        && let Some(conversation) = self.api.conversation(conversation_id).await.ok().flatten() {
-                                            TRACKER.set_conversation(conversation).await;
-                                        }
                                     tracker::error(&error);
                                     tracing::error!(error = ?error);
                                     self.spinner.stop(None)?;
@@ -4167,19 +4161,7 @@ impl<A: API + ConsoleWriter + 'static, F: Fn(ForgeConfig) -> A + Send + Sync> UI
                 // stdout from appearing before the tool name is printed.
                 drop(_guard);
             }
-            ChatResponse::ToolCallEnd(toolcall_result) => {
-                // Only track toolcall name in case of success else track the error.
-                let payload = if toolcall_result.is_error() {
-                    let mut r = ToolCallPayload::new(toolcall_result.name.to_string());
-                    if let Some(cause) = toolcall_result.output.as_str() {
-                        r = r.with_cause(cause.to_string());
-                    }
-                    r
-                } else {
-                    ToolCallPayload::new(toolcall_result.name.to_string())
-                };
-                tracker::tool_call(payload);
-
+            ChatResponse::ToolCallEnd(_toolcall_result) => {
                 self.spinner.start(None)?;
                 if !self.cli.verbose {
                     return Ok(());

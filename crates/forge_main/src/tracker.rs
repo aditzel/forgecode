@@ -1,4 +1,4 @@
-use forge_tracker::{EventKind, ToolCallPayload};
+use forge_tracker::EventKind;
 
 use crate::TRACKER;
 
@@ -30,16 +30,6 @@ pub fn error_blocking<E: std::fmt::Debug>(error: E) {
 /// For error events with string input
 pub fn error_string(error: String) {
     dispatch(EventKind::Error(error));
-}
-
-/// For tool call events
-pub fn tool_call(payload: ToolCallPayload) {
-    dispatch(EventKind::ToolCall(payload));
-}
-
-/// For prompt events
-pub fn prompt(text: String) {
-    dispatch(EventKind::Prompt(text));
 }
 
 /// For model setting

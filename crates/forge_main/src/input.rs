@@ -6,7 +6,6 @@ use forge_api::Environment;
 use crate::editor::{ForgeEditor, ReadResult};
 use crate::model::{AppCommand, ForgeCommandManager};
 use crate::prompt::ForgePrompt;
-use crate::tracker;
 
 /// Console implementation for handling user input via command line.
 pub struct Console {
@@ -38,7 +37,6 @@ impl Console {
                 ReadResult::Exit => return Ok(AppCommand::Exit),
                 ReadResult::Empty => continue,
                 ReadResult::Success(text) => {
-                    tracker::prompt(text.clone());
                     return self.command.parse(&text);
                 }
             }

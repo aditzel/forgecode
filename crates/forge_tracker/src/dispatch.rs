@@ -5,7 +5,6 @@ use std::sync::{Arc, LazyLock};
 
 use bstr::ByteSlice;
 use chrono::{DateTime, Utc};
-use forge_domain::Conversation;
 use sysinfo::System;
 use tokio::process::Command;
 use tokio::sync::Mutex;
@@ -65,7 +64,6 @@ pub struct Tracker {
     start_time: DateTime<Utc>,
     email: Arc<Mutex<Option<Vec<String>>>>,
     model: Arc<Mutex<Option<String>>>,
-    conversation: Arc<Mutex<Option<Conversation>>>,
     is_logged_in: Arc<AtomicBool>,
     rate_limiter: Arc<Mutex<RateLimiter>>,
 }
@@ -81,7 +79,6 @@ impl Default for Tracker {
             start_time,
             email: Arc::new(Mutex::new(None)),
             model: Arc::new(Mutex::new(None)),
-            conversation: Arc::new(Mutex::new(None)),
             is_logged_in: Arc::new(AtomicBool::new(false)),
             rate_limiter: Arc::new(Mutex::new(RateLimiter::new(MAX_EVENTS_PER_MINUTE))),
         }
@@ -131,7 +128,6 @@ impl Tracker {
             version: version(),
             email: email.clone(),
             model: self.model.lock().await.clone(),
-            conversation: self.conversation().await,
             identity: match event_kind {
                 EventKind::Login(id) => Some(id),
                 _ => None,
@@ -153,15 +149,6 @@ impl Tracker {
         guard.clone().unwrap_or_default()
     }
 
-    async fn conversation(&self) -> Option<Conversation> {
-        let mut guard = self.conversation.lock().await;
-        let conversation = guard.clone();
-        *guard = None;
-        conversation
-    }
-    pub async fn set_conversation(&self, conversation: Conversation) {
-        *self.conversation.lock().await = Some(conversation);
-    }
 }
 
 fn tracking_enabled() -> bool {
@@ -320,10 +307,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_tracker() {
-        if let Err(e) = TRACKER
-            .dispatch(EventKind::Prompt("ping".to_string()))
-            .await
-        {
+        if let Err(e) = TRACKER.dispatch(EventKind::Error("ping".to_string())).await {
             panic!("Tracker dispatch error: {e:?}");
         }
     }
