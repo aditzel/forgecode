@@ -86,6 +86,21 @@ impl Default for Tracker {
 }
 
 impl Tracker {
+    /// Creates a tracker with custom collectors; tracking is always enabled.
+    /// Intended for tests.
+    #[cfg(test)]
+    pub(crate) fn with_collectors(collectors: Vec<Box<dyn Collect>>) -> Self {
+        Self {
+            collectors: Arc::new(collectors),
+            can_track: true,
+            start_time: Utc::now(),
+            email: Arc::new(Mutex::new(Some(vec![]))),
+            model: Arc::new(Mutex::new(None)),
+            is_logged_in: Arc::new(AtomicBool::new(false)),
+            rate_limiter: Arc::new(Mutex::new(RateLimiter::new(MAX_EVENTS_PER_MINUTE))),
+        }
+    }
+
     pub async fn set_model<S: Into<String>>(&'static self, model: S) {
         let mut guard = self.model.lock().await;
         *guard = Some(model.into());

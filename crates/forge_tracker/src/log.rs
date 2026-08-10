@@ -118,3 +118,99 @@ impl tracing::field::Visit for MessageVisitor {
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use std::sync::mpsc;
+    use std::time::Duration;
+
+    use pretty_assertions::assert_eq;
+    use tracing_subscriber::prelude::*;
+
+    use super::*;
+    use crate::collect::Collect;
+    use crate::{Event, Tracker};
+
+    struct ChannelCollector(std::sync::Mutex<mpsc::Sender<Event>>);
+
+    #[async_trait::async_trait]
+    impl Collect for ChannelCollector {
+        async fn collect(&self, event: Event) -> crate::Result<()> {
+            self.0.lock().unwrap().send(event).ok();
+            Ok(())
+        }
+    }
+
+    /// Runs the given closure with a PosthogErrorLayer installed and returns
+    /// the `(name, value)` of every event it dispatched.
+    fn capture_events(f: impl FnOnce()) -> Vec<(String, String)> {
+        let (tx, rx) = mpsc::channel();
+        let tracker =
+            Tracker::with_collectors(vec![Box::new(ChannelCollector(std::sync::Mutex::new(tx)))]);
+        let subscriber = tracing_subscriber::registry().with(PosthogErrorLayer::new(tracker));
+
+        // Keep the subscriber (and the layer's runtime) alive until all
+        // dispatched events have been drained.
+        let guard = tracing::subscriber::set_default(subscriber);
+        f();
+
+        let mut events = vec![];
+        while let Ok(event) = rx.recv_timeout(Duration::from_millis(200)) {
+            events.push((event.event_name.to_string(), event.event_value));
+        }
+        drop(guard);
+        events
+    }
+
+    #[test]
+    fn test_error_event_is_dispatched_with_message_and_fields() {
+        let mut line = 0;
+        let actual = capture_events(|| {
+            tracing::error!(target: "forge_test", code = 42, "something failed");
+            line = line!() - 1; // line of the error! call above
+        });
+
+        let expected = vec![(
+            "error".to_string(),
+            format!("{}:{line} something failed code=42", file!()),
+        )];
+        assert_eq!(actual, expected);
+    }
+
+    #[test]
+    fn test_non_error_levels_are_ignored() {
+        let actual = capture_events(|| {
+            tracing::warn!(target: "forge_test", "a warning");
+            tracing::info!(target: "forge_test", "an info");
+            tracing::debug!(target: "forge_test", "a debug");
+        });
+
+        let expected: Vec<(String, String)> = vec![];
+        assert_eq!(actual, expected);
+    }
+
+    #[test]
+    fn test_non_forge_targets_are_ignored() {
+        let actual = capture_events(|| {
+            tracing::error!(target: "hyper::client", "external error");
+        });
+
+        let expected: Vec<(String, String)> = vec![];
+        assert_eq!(actual, expected);
+    }
+
+    #[test]
+    fn test_multiple_errors_are_dispatched_in_order() {
+        let actual: Vec<String> = capture_events(|| {
+            tracing::error!(target: "forge_test", "first");
+            tracing::error!(target: "forge_test", "second");
+        })
+        .into_iter()
+        .map(|(_, value)| value)
+        .collect();
+
+        assert_eq!(actual.len(), 2);
+        assert!(actual[0].ends_with("first"));
+        assert!(actual[1].ends_with("second"));
+    }
+}
