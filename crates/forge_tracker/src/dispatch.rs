@@ -55,7 +55,7 @@ static CACHED_ARGS: LazyLock<Vec<String>> = LazyLock::new(|| std::env::args().sk
 /// This acts as a rate limiter to prevent runaway loops (e.g. when
 /// stdout/stderr is closed and every write error triggers another error event)
 /// while allowing normal tracking to continue for long-running sessions.
-const MAX_EVENTS_PER_MINUTE: usize = 1_000;
+const MAX_EVENTS_PER_MINUTE: usize = 60;
 
 #[derive(Clone)]
 pub struct Tracker {

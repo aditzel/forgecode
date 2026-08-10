@@ -406,7 +406,6 @@ impl<A: API + ConsoleWriter + 'static, F: Fn(ForgeConfig) -> A + Send + Sync> UI
                             match result {
                                 Ok(exit) => if exit {return Ok(())},
                                 Err(error) => {
-                                    tracker::error(&error);
                                     tracing::error!(error = ?error);
                                     self.spinner.stop(None)?;
                                     self.writeln_to_stderr(TitleFormat::error(format!("{error:?}")).display().to_string())?;
@@ -418,7 +417,6 @@ impl<A: API + ConsoleWriter + 'static, F: Fn(ForgeConfig) -> A + Send + Sync> UI
                     self.spinner.stop(None)?;
                 }
                 Err(error) => {
-                    tracker::error(&error);
                     tracing::error!(error = ?error);
                     self.spinner.stop(None)?;
 

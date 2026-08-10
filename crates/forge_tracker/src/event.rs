@@ -1,6 +1,5 @@
 use std::ops::Deref;
 
-use bstr::ByteSlice;
 use chrono::{DateTime, Utc};
 use convert_case::{Case, Casing};
 use serde::{Deserialize, Serialize};
@@ -54,7 +53,6 @@ impl From<Name> for String {
 pub enum EventKind {
     Start,
     Error(String),
-    Trace(Vec<u8>),
     Login(Identity),
 }
 
@@ -63,7 +61,6 @@ impl EventKind {
         match self {
             Self::Start => Name::from("start".to_string()),
             Self::Error(_) => Name::from("error".to_string()),
-            Self::Trace(_) => Name::from("trace".to_string()),
             Self::Login(_) => Name::from("login".to_string()),
         }
     }
@@ -71,7 +68,6 @@ impl EventKind {
         match self {
             Self::Start => "".to_string(),
             Self::Error(content) => content.to_string(),
-            Self::Trace(trace) => trace.to_str_lossy().to_string(),
             Self::Login(id) => id.login.to_owned(),
         }
     }
