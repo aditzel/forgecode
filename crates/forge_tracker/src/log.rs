@@ -83,9 +83,7 @@ impl<S: tracing::Subscriber> Layer<S> for PosthogErrorLayer {
         _ctx: tracing_subscriber::layer::Context<'_, S>,
     ) {
         let metadata = event.metadata();
-        if *metadata.level() != tracing::Level::ERROR
-            || !metadata.target().starts_with("forge_")
-        {
+        if *metadata.level() != tracing::Level::ERROR || !metadata.target().starts_with("forge_") {
             return;
         }
 

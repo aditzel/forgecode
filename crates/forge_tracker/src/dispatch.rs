@@ -148,7 +148,6 @@ impl Tracker {
         }
         guard.clone().unwrap_or_default()
     }
-
 }
 
 fn tracking_enabled() -> bool {
